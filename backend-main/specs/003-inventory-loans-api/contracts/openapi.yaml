@@ -1,0 +1,2115 @@
+# Kontrak OpenAPI hasil ekspor dari src/docs/openapi.ts.
+# tests/unit/openapi.test.ts memastikan path dan method tetap sinkron dengan dokumen runtime.
+openapi: 3.0.3
+info:
+  title: School Inventory Backend API
+  version: 1.0.0
+  description: "Kontrak API REST untuk School Inventory Backend. Endpoint selain health, register, login, dan refresh memerlukan Bearer access token. Otorisasi berbasis peran: admin (Admin), inventory_officer (Petugas), staff (Peminjam). Peran yang tidak diizinkan menerima 403 AUTHORIZATION_ERROR."
+servers:
+  - url: http://localhost:3000
+    description: Development server
+tags:
+  - name: Auth
+    description: Autentikasi dan session
+  - name: Categories
+    description: Kategori barang (KF-04)
+  - name: Items
+    description: Data barang, barcode, dan riwayat (KF-03, KF-05, KF-07, KF-08, KF-13)
+  - name: Loans
+    description: Peminjaman dan pengembalian (KF-09 sampai KF-12)
+  - name: Users
+    description: Manajemen pengguna dan peran (KF-06)
+  - name: Dashboard
+    description: Ringkasan admin (KF-02)
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Memeriksa kesehatan layanan
+      responses:
+        "200":
+          description: Layanan tersedia
+          content:
+            application/json:
+              schema: &a2
+                $ref: "#/components/schemas/SuccessEnvelope"
+              example:
+                success: true
+                data:
+                  status: ok
+        "500": &a1
+          description: Kesalahan internal tanpa detail sensitif
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Terjadi kesalahan internal
+                error:
+                  code: INTERNAL_ERROR
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Mendaftarkan akun staf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Akun berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+              example:
+                success: true
+                data:
+                  user_id: 00000000-0000-0000-0000-000000000000
+                  email: siti@example.com
+                  email_verification_required: false
+                  session:
+                    access_token: redacted-development-token
+                    refresh_token: redacted-development-refresh-token
+                    token_type: bearer
+                    expires_at: 1893456000
+                message: Pendaftaran berhasil
+        "400": &a3
+          description: Data permintaan tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Data permintaan tidak valid
+                error:
+                  code: VALIDATION_ERROR
+                  details:
+                    - path: email
+                      message: Invalid email address
+        "409": &a41
+          description: Data akun sudah digunakan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Data akun sudah digunakan
+                error:
+                  code: CONFLICT_ERROR
+        "500": *a1
+        "503": &a4
+          description: Layanan autentikasi sementara tidak tersedia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Layanan autentikasi sementara tidak tersedia
+                error:
+                  code: DEPENDENCY_ERROR
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Masuk dan memperoleh session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login berhasil
+          content:
+            application/json:
+              schema: *a2
+              example:
+                success: true
+                data:
+                  session:
+                    access_token: redacted-development-token
+                    refresh_token: redacted-development-refresh-token
+                    token_type: bearer
+                    expires_at: 1893456000
+                  user:
+                    user_id: 00000000-0000-0000-0000-000000000000
+                    full_name: Siti Aminah
+                    email: siti@example.com
+                    staff_id: STF-001
+                    school_unit: Unit Sarana
+                    role: staff
+                    account_status: active
+                message: Login berhasil
+        "400": *a3
+        "401": &a5
+          description: Autentikasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Autentikasi gagal
+                error:
+                  code: AUTHENTICATION_ERROR
+        "500": *a1
+        "503": *a4
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Memperbarui session dengan refresh token
+      description: Menukar refresh_token dengan access_token baru. Refresh token dari session yang sudah logout ditolak.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Session diperbarui
+          content:
+            application/json:
+              schema: *a2
+              example:
+                success: true
+                data:
+                  session:
+                    access_token: redacted-development-token
+                    refresh_token: redacted-development-refresh-token
+                    token_type: bearer
+                    expires_at: 1893456000
+                  user:
+                    user_id: 00000000-0000-0000-0000-000000000000
+                    full_name: Siti Aminah
+                    email: siti@example.com
+                    staff_id: STF-001
+                    school_unit: Unit Sarana
+                    role: staff
+                    account_status: active
+                message: Session diperbarui
+        "400": *a3
+        "401": *a5
+        "500": *a1
+        "503": *a4
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Mengakhiri session aktif
+      description: Memerlukan Bearer token valid. Semua peran.
+      security: &a6
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout berhasil
+          content:
+            application/json:
+              schema: *a2
+              example:
+                success: true
+                message: Logout berhasil
+        "401": *a5
+        "500": *a1
+        "503": *a4
+  /api/v1/auth/profile:
+    get:
+      tags:
+        - Auth
+      summary: Mengambil profil pengguna aktif
+      description: Memerlukan Bearer token valid dan profil personel aktif. Semua peran.
+      security: *a6
+      responses:
+        "200":
+          description: Profil pengguna
+          content:
+            application/json:
+              schema: *a2
+              example:
+                success: true
+                data:
+                  user_id: 00000000-0000-0000-0000-000000000000
+                  full_name: Siti Aminah
+                  email: siti@example.com
+                  staff_id: STF-001
+                  school_unit: Unit Sarana
+                  role: staff
+                  account_status: active
+        "401": *a5
+        "404": &a42
+          description: Profil atau route tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Profil personel tidak ditemukan
+                error:
+                  code: NOT_FOUND_ERROR
+        "500": *a1
+        "503": *a4
+  /api/v1/categories:
+    get:
+      tags:
+        - Categories
+      summary: Daftar kategori
+      description: "Peran: admin, inventory_officer, staff."
+      security: &a7
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+          description: Kata kunci pencarian
+      responses:
+        "200":
+          description: Daftar kategori
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Category"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400": &a8
+          description: Data permintaan tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Data permintaan tidak valid
+                error:
+                  code: VALIDATION_ERROR
+                  details:
+                    - path: id
+                      message: ID harus berupa UUID yang valid
+        "401": &a9
+          description: Token tidak ada atau tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Autentikasi gagal
+                error:
+                  code: AUTHENTICATION_ERROR
+        "403": &a10
+          description: Peran tidak diizinkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Anda tidak memiliki akses ke sumber daya ini
+                error:
+                  code: AUTHORIZATION_ERROR
+        "503": &a11
+          description: Basis data tidak tersedia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Layanan basis data sementara tidak tersedia
+                error:
+                  code: DEPENDENCY_ERROR
+    post:
+      tags:
+        - Categories
+      summary: Tambah kategori
+      description: "Peran: admin."
+      security: *a7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryCreateRequest"
+      responses:
+        "201":
+          description: Kategori dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Category"
+                  message:
+                    type: string
+                    example: Kategori berhasil dibuat
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "409": &a14
+          description: Konflik dengan data yang ada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Data sudah digunakan
+                error:
+                  code: CONFLICT_ERROR
+        "503": *a11
+  /api/v1/categories/{id}:
+    get:
+      tags:
+        - Categories
+      summary: Detail kategori
+      description: "Peran: admin, inventory_officer, staff."
+      security: *a7
+      parameters:
+        - &a12
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Detail kategori
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Category"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": &a13
+          description: Data tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                success: false
+                message: Data tidak ditemukan
+                error:
+                  code: NOT_FOUND_ERROR
+        "503": *a11
+    put:
+      tags:
+        - Categories
+      summary: Ubah kategori
+      description: "Peran: admin. Hanya field yang dikirim yang diubah."
+      security: *a7
+      parameters:
+        - *a12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdateRequest"
+      responses:
+        "200":
+          description: Kategori diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Category"
+                  message:
+                    type: string
+                    example: Kategori berhasil diperbarui
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+    delete:
+      tags:
+        - Categories
+      summary: Hapus kategori
+      description: "Peran: admin. Ditolak (409) bila kategori masih memiliki barang."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Kategori berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+              example:
+                success: true
+                message: Kategori berhasil dihapus
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+  /api/v1/items:
+    get:
+      tags:
+        - Items
+      summary: Daftar barang
+      description: "Peran: admin, inventory_officer."
+      security: *a7
+      parameters:
+        - &a15
+          name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - &a16
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+          description: Cari nama, barcode, atau lokasi
+        - name: category_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - available
+              - borrowed
+              - damaged
+        - name: condition
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - good
+              - minor_damage
+              - damaged
+      responses:
+        "200":
+          description: Daftar barang
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Item"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "503": *a11
+    post:
+      tags:
+        - Items
+      summary: Tambah barang (KF-03)
+      description: "Peran: admin. Barcode dinormalisasi ke huruf besar dan harus unik. Bila tidak dikirim, sistem membuat kode INV-000001 dan seterusnya. Status diturunkan dari kondisi."
+      security: *a7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCreateRequest"
+      responses:
+        "201":
+          description: Barang dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ItemDetail"
+                  message:
+                    type: string
+                    example: Barang berhasil ditambahkan
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "409": *a14
+        "503": *a11
+  /api/v1/items/code/{code}:
+    get:
+      tags:
+        - Items
+      summary: Cari barang dari barcode hasil pindai atau input manual (KF-07, KF-08)
+      description: "Peran: admin, inventory_officer. Respons menyertakan `active_loan` bila barang sedang dipinjam, sehingga frontend dapat memilih alur pinjam atau kembali."
+      security: *a7
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            example: INV-000001
+      responses:
+        "200":
+          description: Barang ditemukan
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ItemDetail"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "503": *a11
+  /api/v1/items/{id}:
+    get:
+      tags:
+        - Items
+      summary: Detail barang
+      description: "Peran: admin, inventory_officer."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Detail barang
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ItemDetail"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "503": *a11
+    put:
+      tags:
+        - Items
+      summary: Ubah barang
+      description: "Peran: admin. Hanya field yang dikirim yang diubah. Kondisi barang yang sedang dipinjam tidak dapat diubah (409); gunakan pengembalian."
+      security: *a7
+      parameters:
+        - *a12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemUpdateRequest"
+      responses:
+        "200":
+          description: Barang diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ItemDetail"
+                  message:
+                    type: string
+                    example: Barang berhasil diperbarui
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+    delete:
+      tags:
+        - Items
+      summary: Hapus barang
+      description: "Peran: admin. Ditolak (409) bila barang memiliki riwayat peminjaman."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Barang berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+              example:
+                success: true
+                message: Barang berhasil dihapus
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+  /api/v1/items/{id}/history:
+    get:
+      tags:
+        - Items
+      summary: Riwayat peminjaman dan kondisi per barang (KF-13)
+      description: "Peran: admin, inventory_officer. Masing-masing maksimal 100 entri terbaru."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Riwayat barang
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ItemHistory"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "503": *a11
+  /api/v1/loans:
+    get:
+      tags:
+        - Loans
+      summary: Daftar peminjaman (KF-11)
+      description: "Peran: admin, inventory_officer. `status=overdue` (alias `terlambat`) menampilkan peminjaman aktif yang melewati jatuh tempo. Aktif/terlambat diurutkan dari jatuh tempo terdekat."
+      security: *a7
+      parameters:
+        - *a15
+        - *a16
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all
+              - active
+              - overdue
+              - returned
+              - aktif
+              - terlambat
+              - selesai
+            default: all
+        - name: item_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: borrower_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: borrowed_from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Tanggal awal (WIB)
+        - name: borrowed_to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Tanggal akhir (WIB)
+      responses:
+        "200":
+          description: Daftar peminjaman
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Loan"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "503": *a11
+    post:
+      tags:
+        - Loans
+      summary: Catat peminjaman (KF-09)
+      description: "Peran: admin, inventory_officer. Transaksi atomik: status barang menjadi `borrowed`. Petugas diambil dari token. Bila barang tidak tersedia, respons 409 menyertakan `error.details.active_loan` (U-09)."
+      security: *a7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanCreateRequest"
+      responses:
+        "201":
+          description: Peminjaman dicatat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Loan"
+                  message:
+                    type: string
+                    example: Peminjaman berhasil dicatat
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+  /api/v1/loans/me:
+    get:
+      tags:
+        - Loans
+      summary: Riwayat peminjaman milik sendiri (KF-12)
+      description: "Peran: admin, inventory_officer, staff."
+      security: *a7
+      parameters:
+        - *a15
+        - *a16
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - all
+              - active
+              - overdue
+              - returned
+            default: all
+      responses:
+        "200":
+          description: Peminjaman milik pengguna
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Loan"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "503": *a11
+  /api/v1/loans/{id}:
+    get:
+      tags:
+        - Loans
+      summary: Detail peminjaman
+      description: "Peran: admin, inventory_officer, staff. Peminjam (`staff`) hanya dapat melihat peminjaman miliknya; lainnya 404."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Detail peminjaman
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Loan"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "503": *a11
+  /api/v1/loans/{id}/return:
+    post:
+      tags:
+        - Loans
+      summary: Catat pengembalian dan kondisi barang (KF-10)
+      description: "Peran: admin, inventory_officer. Transaksi atomik: kondisi `damaged` membuat status barang `damaged`; selain itu `available`. Riwayat kondisi dicatat."
+      security: *a7
+      parameters:
+        - *a12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanReturnRequest"
+      responses:
+        "200":
+          description: Pengembalian dicatat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/Loan"
+                  message:
+                    type: string
+                    example: Pengembalian berhasil dicatat
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+  /api/v1/users:
+    get:
+      tags:
+        - Users
+      summary: Daftar pengguna (juga untuk memilih peminjam)
+      description: "Peran: admin, inventory_officer."
+      security: *a7
+      parameters:
+        - *a15
+        - *a16
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+          description: Cari nama, email, atau ID personel
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - staff
+              - inventory_officer
+              - admin
+        - name: account_status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - active
+              - inactive
+      responses:
+        "200":
+          description: Daftar pengguna
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    required:
+                      - items
+                      - pagination
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ManagedUser"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "503": *a11
+    post:
+      tags:
+        - Users
+      summary: Buat akun pengguna (KF-06)
+      description: "Peran: admin. Email langsung terverifikasi; pengguna dapat login dengan password yang diberikan."
+      security: *a7
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: Pengguna dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ManagedUser"
+                  message:
+                    type: string
+                    example: Pengguna berhasil dibuat
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "409": *a14
+        "503": *a11
+  /api/v1/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Detail pengguna
+      description: "Peran: admin, inventory_officer."
+      security: *a7
+      parameters:
+        - *a12
+      responses:
+        "200":
+          description: Detail pengguna
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ManagedUser"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "503": *a11
+    put:
+      tags:
+        - Users
+      summary: Ubah data, peran, atau status pengguna (KF-06)
+      description: "Peran: admin. Hanya field yang dikirim yang diubah. Admin tidak dapat mengubah peran atau menonaktifkan akun sendiri (403). Akun `inactive` langsung ditolak pada request berikutnya."
+      security: *a7
+      parameters:
+        - *a12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+      responses:
+        "200":
+          description: Pengguna diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/ManagedUser"
+                  message:
+                    type: string
+                    example: Pengguna berhasil diperbarui
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "404": *a13
+        "409": *a14
+        "503": *a11
+  /api/v1/dashboard/summary:
+    get:
+      tags:
+        - Dashboard
+      summary: Ringkasan dashboard admin (KF-02)
+      description: "Peran: admin. Total barang, dipinjam, terlambat, rusak, grafik mingguan (minggu Senin-Minggu WIB), dan daftar keterlambatan."
+      security: *a7
+      parameters:
+        - name: weeks
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 4
+        - name: overdue_limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+      responses:
+        "200":
+          description: Ringkasan dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    $ref: "#/components/schemas/DashboardSummary"
+        "400": *a8
+        "401": *a9
+        "403": *a10
+        "503": *a11
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+          example: true
+        data:
+          nullable: true
+        message:
+          type: string
+          example: Login berhasil
+    UserProfile:
+      type: object
+      required:
+        - user_id
+        - full_name
+        - email
+        - staff_id
+        - school_unit
+        - role
+        - account_status
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000000
+        full_name:
+          type: string
+          example: Siti Aminah
+        email:
+          type: string
+          format: email
+          example: siti@example.com
+        staff_id:
+          type: string
+          example: STF-001
+        school_unit:
+          type: string
+          example: Unit Sarana
+        role:
+          type: string
+          enum:
+            - staff
+            - inventory_officer
+            - admin
+          example: staff
+        account_status:
+          type: string
+          enum:
+            - active
+            - inactive
+          example: active
+    AuthSession:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_at
+      properties:
+        access_token:
+          type: string
+          format: password
+          example: redacted-development-token
+        refresh_token:
+          type: string
+          format: password
+          example: redacted-development-refresh-token
+        token_type:
+          type: string
+          enum:
+            - bearer
+          example: bearer
+        expires_at:
+          type: integer
+          example: 1893456000
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - full_name
+        - email
+        - password
+        - staff_id
+        - school_unit
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: Siti Aminah
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: siti@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          example: Rahasia123!
+        staff_id:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: STF-001
+        school_unit:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Unit Sarana
+    RegisterResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+          example: true
+        data:
+          type: object
+          required:
+            - user_id
+            - email
+            - email_verification_required
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            email_verification_required:
+              type: boolean
+              example: false
+            session:
+              $ref: "#/components/schemas/AuthSession"
+        message:
+          type: string
+          example: Pendaftaran berhasil
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: siti@example.com
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+          example: Rahasia123!
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          format: password
+          minLength: 1
+          example: redacted-development-refresh-token
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - total_pages
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 42
+        total_pages:
+          type: integer
+          example: 3
+    CategoryRef:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id: &a17
+          type: string
+          format: uuid
+          example: 00000000-0000-4000-8000-000000000000
+        name:
+          type: string
+          example: Komputer
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - item_count
+        - created_at
+        - updated_at
+      properties:
+        id: *a17
+        name:
+          type: string
+          example: Komputer
+        description:
+          type: string
+          nullable: true
+          example: Laptop dan PC praktik
+        item_count:
+          type: integer
+          example: 12
+        created_at: &a18
+          type: string
+          format: date-time
+          example: 2026-11-07T08:00:00.000+00:00
+        updated_at: *a18
+    CategoryCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+          example: Komputer
+        description:
+          type: string
+          nullable: true
+          example: Laptop dan PC praktik
+          maxLength: 500
+    CategoryUpdateRequest:
+      type: object
+      additionalProperties: false
+      description: Minimal satu field
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 80
+          example: Komputer
+        description:
+          type: string
+          nullable: true
+          example: Laptop dan PC praktik
+          maxLength: 500
+    ItemRef:
+      type: object
+      required:
+        - id
+        - barcode
+        - name
+        - category
+      properties:
+        id: *a17
+        barcode: &a19
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9._-]{2,63}$
+          description: Dinormalisasi ke huruf besar
+          example: INV-RPL-0012
+        name:
+          type: string
+          example: Laptop Asus A14
+        category:
+          $ref: "#/components/schemas/CategoryRef"
+    Item:
+      type: object
+      required:
+        - id
+        - barcode
+        - name
+        - category
+        - location
+        - condition
+        - status
+        - acquired_at
+        - notes
+        - created_at
+        - updated_at
+      properties:
+        id: *a17
+        barcode: *a19
+        name: &a20
+          type: string
+          example: Laptop Asus A14
+        category: &a21
+          $ref: "#/components/schemas/CategoryRef"
+        location: &a22
+          type: string
+          nullable: true
+          example: Lab RPL 1
+        condition: &a23
+          type: string
+          enum: &a27
+            - good
+            - minor_damage
+            - damaged
+          description: good = baik, minor_damage = rusak ringan (tetap dapat dipinjam), damaged = rusak
+          example: good
+        status: &a24
+          type: string
+          enum:
+            - available
+            - borrowed
+            - damaged
+          example: available
+        acquired_at: &a25
+          type: string
+          format: date
+          nullable: true
+          example: 2026-07-15
+        notes: &a26
+          type: string
+          nullable: true
+          example: Inventaris BOS 2026
+        created_at: *a18
+        updated_at: *a18
+    ItemDetail:
+      type: object
+      required:
+        - id
+        - barcode
+        - name
+        - category
+        - location
+        - condition
+        - status
+        - acquired_at
+        - notes
+        - created_at
+        - updated_at
+        - active_loan
+      properties:
+        id: *a17
+        barcode: *a19
+        name: *a20
+        category: *a21
+        location: *a22
+        condition: *a23
+        status: *a24
+        acquired_at: *a25
+        notes: *a26
+        created_at: *a18
+        updated_at: *a18
+        active_loan:
+          $ref: "#/components/schemas/ActiveLoan"
+          nullable: true
+    ItemCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - category_id
+      properties:
+        barcode:
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9._-]{2,63}$
+          description: Opsional; dibuat otomatis bila kosong
+          example: INV-RPL-0012
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: Laptop Asus A14
+        category_id: *a17
+        location:
+          type: string
+          nullable: true
+          example: Lab RPL 1
+          maxLength: 120
+        condition:
+          type: string
+          enum: *a27
+          description: good = baik, minor_damage = rusak ringan (tetap dapat dipinjam), damaged = rusak
+          example: good
+          default: good
+        acquired_at:
+          type: string
+          format: date
+          nullable: true
+          example: 2026-07-15
+        notes:
+          type: string
+          nullable: true
+          example: Inventaris BOS 2026
+          maxLength: 1000
+    ItemUpdateRequest:
+      type: object
+      additionalProperties: false
+      description: Minimal satu field. Status barang tidak dapat diubah langsung.
+      properties:
+        barcode: *a19
+        name:
+          type: string
+          minLength: 2
+          maxLength: 150
+        category_id: *a17
+        location:
+          type: string
+          nullable: true
+          example: Lab RPL 2
+          maxLength: 120
+        condition: *a23
+        acquired_at:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          example: Catatan perubahan kondisi
+          maxLength: 1000
+    PersonRef:
+      type: object
+      required:
+        - user_id
+        - full_name
+        - staff_id
+        - school_unit
+      properties:
+        user_id: *a17
+        full_name:
+          type: string
+          example: Budi Santoso
+        staff_id:
+          type: string
+          example: SIS-2026-001
+        school_unit:
+          type: string
+          example: XI RPL 1
+    Loan:
+      type: object
+      required:
+        - id
+        - status
+        - is_overdue
+        - overdue_days
+        - returned_late
+        - borrowed_at
+        - due_at
+        - returned_at
+        - notes
+        - return_condition
+        - return_notes
+        - item
+        - borrower
+        - officer
+        - return_officer
+        - created_at
+        - updated_at
+      properties:
+        id: *a17
+        status: &a30
+          type: string
+          enum:
+            - active
+            - returned
+          example: active
+        is_overdue: &a31
+          type: boolean
+          example: false
+          description: Aktif dan melewati jatuh tempo
+        overdue_days: &a32
+          type: integer
+          example: 0
+        returned_late: &a33
+          type: boolean
+          example: false
+        borrowed_at: *a18
+        due_at: *a18
+        returned_at: &a34
+          type: string
+          format: date-time
+          example: 2026-11-07T08:00:00.000+00:00
+          nullable: true
+        notes: &a35
+          type: string
+          nullable: true
+          example: Untuk praktik
+        return_condition: &a36
+          type: string
+          enum: *a27
+          description: good = baik, minor_damage = rusak ringan (tetap dapat dipinjam), damaged = rusak
+          example: good
+          nullable: true
+        return_notes: &a37
+          type: string
+          nullable: true
+          example: Layar tergores
+        item:
+          $ref: "#/components/schemas/ItemRef"
+        borrower: &a38
+          $ref: "#/components/schemas/PersonRef"
+        officer: &a39
+          type: object
+          required: &a28
+            - user_id
+            - full_name
+          properties: &a29
+            user_id: *a17
+            full_name:
+              type: string
+              example: Petugas Sarana
+        return_officer: &a40
+          type: object
+          required: *a28
+          properties: *a29
+          nullable: true
+        created_at: *a18
+        updated_at: *a18
+    ActiveLoan:
+      type: object
+      description: Sama dengan Loan tanpa field `item`
+      properties:
+        id: *a17
+        status: *a30
+        is_overdue: *a31
+        overdue_days: *a32
+        returned_late: *a33
+        borrowed_at: *a18
+        due_at: *a18
+        returned_at: *a34
+        notes: *a35
+        return_condition: *a36
+        return_notes: *a37
+        borrower: *a38
+        officer: *a39
+        return_officer: *a40
+        created_at: *a18
+        updated_at: *a18
+    LoanCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - item_id
+        - borrower_id
+        - due_at
+      properties:
+        item_id: *a17
+        borrower_id:
+          type: string
+          format: uuid
+          example: 00000000-0000-4000-8000-000000000000
+          description: user_id peminjam (GET /api/v1/users)
+        due_at:
+          type: string
+          example: 2026-11-14
+          description: YYYY-MM-DD (berarti 23:59:59 WIB) atau ISO 8601 datetime dengan zona waktu. Harus di masa depan, maksimal 1 tahun.
+        notes:
+          type: string
+          nullable: true
+          example: Untuk praktik jaringan
+          maxLength: 500
+    LoanReturnRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - condition
+      properties:
+        condition: *a23
+        notes:
+          type: string
+          nullable: true
+          example: Layar tergores
+          maxLength: 500
+    ConditionLog:
+      type: object
+      required:
+        - id
+        - loan_id
+        - condition
+        - event
+        - notes
+        - recorded_at
+        - recorded_by
+      properties:
+        id: *a17
+        loan_id:
+          type: string
+          format: uuid
+          example: 00000000-0000-4000-8000-000000000000
+          nullable: true
+        condition: *a23
+        event:
+          type: string
+          enum:
+            - registered
+            - borrowed
+            - returned
+            - updated
+          example: returned
+        notes:
+          type: string
+          nullable: true
+          example: Layar tergores
+        recorded_at: *a18
+        recorded_by:
+          type: object
+          required: *a28
+          properties: *a29
+          nullable: true
+    ItemHistory:
+      type: object
+      required:
+        - item
+        - loans
+        - condition_logs
+      properties:
+        item:
+          $ref: "#/components/schemas/ItemDetail"
+        loans:
+          type: array
+          items:
+            $ref: "#/components/schemas/Loan"
+        condition_logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConditionLog"
+    ManagedUser:
+      type: object
+      required:
+        - user_id
+        - full_name
+        - email
+        - staff_id
+        - school_unit
+        - role
+        - account_status
+        - created_at
+        - updated_at
+      properties:
+        user_id: *a17
+        full_name:
+          type: string
+          example: Budi Santoso
+        email:
+          type: string
+          format: email
+          example: budi@example.com
+        staff_id:
+          type: string
+          example: SIS-2026-001
+        school_unit:
+          type: string
+          example: XI RPL 1
+        role:
+          type: string
+          enum:
+            - staff
+            - inventory_officer
+            - admin
+          example: staff
+        account_status:
+          type: string
+          enum:
+            - active
+            - inactive
+          example: active
+        created_at: *a18
+        updated_at: *a18
+    UserCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - full_name
+        - email
+        - password
+        - staff_id
+        - school_unit
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: Budi Santoso
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: budi@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          example: Rahasia123!
+        staff_id:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: SIS-2026-001
+        school_unit:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: XI RPL 1
+        role:
+          type: string
+          enum:
+            - staff
+            - inventory_officer
+            - admin
+          default: staff
+    UserUpdateRequest:
+      type: object
+      additionalProperties: false
+      description: Minimal satu field
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        school_unit:
+          type: string
+          minLength: 2
+          maxLength: 100
+        role:
+          type: string
+          enum:
+            - staff
+            - inventory_officer
+            - admin
+          example: inventory_officer
+        account_status:
+          type: string
+          enum:
+            - active
+            - inactive
+    DashboardSummary:
+      type: object
+      required:
+        - generated_at
+        - items
+        - categories
+        - loans
+        - weekly_loans
+        - overdue_loans
+      properties:
+        generated_at: *a18
+        items:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 248
+            available:
+              type: integer
+              example: 208
+            borrowed:
+              type: integer
+              example: 37
+            damaged:
+              type: integer
+              example: 3
+        categories:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 12
+        loans:
+          type: object
+          properties:
+            active:
+              type: integer
+              example: 37
+            overdue:
+              type: integer
+              example: 5
+            borrowed_this_month:
+              type: integer
+              example: 62
+        weekly_loans:
+          type: array
+          items:
+            type: object
+            properties:
+              week_start:
+                type: string
+                format: date
+                example: 2026-11-02
+              week_end:
+                type: string
+                format: date
+                example: 2026-11-08
+              total:
+                type: integer
+                example: 18
+        overdue_loans:
+          type: array
+          items:
+            $ref: "#/components/schemas/Loan"
+    ErrorEnvelope:
+      type: object
+      required:
+        - success
+        - message
+        - error
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+          example: false
+        message:
+          type: string
+          example: Autentikasi gagal
+        error:
+          type: object
+          required:
+            - code
+          properties:
+            code:
+              type: string
+              example: AUTHENTICATION_ERROR
+            details:
+              nullable: true
+  responses:
+    ValidationError: *a3
+    AuthenticationError: *a5
+    AuthorizationError:
+      description: Peran tidak diizinkan
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            success: false
+            message: Anda tidak memiliki akses ke sumber daya ini
+            error:
+              code: AUTHORIZATION_ERROR
+    ConflictError: *a41
+    DependencyError: *a4
+    NotFoundError: *a42
+    InternalError: *a1

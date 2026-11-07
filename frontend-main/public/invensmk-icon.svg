@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="512" height="512" role="img" aria-label="InvenSMK"><title>InvenSMK</title>
+<rect width="120" height="120" rx="28" fill="#0B2B6B"/>
+<path d="M60 26 L92 44 V78 L60 96 L28 78 V44 Z M28 44 L60 62 L92 44 M60 62 V96" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M16 61 H104" stroke="#34D399" stroke-width="6" stroke-linecap="round"/>
+</svg>
